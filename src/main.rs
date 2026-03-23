@@ -218,6 +218,143 @@ fn cmd_add(text: &str) {
     println!("Added: {}", text);
 }
 
+// ── Tray (StatusNotifierItem) ─────────────────────────────────────────────────
+
+fn cmd_tray() {
+    use ksni::menu::StandardItem;
+
+    struct OmadoTray {
+        todos: Vec<Todo>,
+        path: PathBuf,
+    }
+
+    impl OmadoTray {
+        fn new() -> Self {
+            let path = todo_file_path();
+            let todos = load_todos(&path);
+            Self { todos, path }
+        }
+        fn reload(&mut self) {
+            self.todos = load_todos(&self.path);
+        }
+    }
+
+    impl ksni::Tray for OmadoTray {
+        fn id(&self) -> String {
+            "omado".into()
+        }
+        fn title(&self) -> String {
+            let n = self.todos.iter().filter(|t| !t.done).count();
+            if n == 0 { "omado".into() } else { format!("omado ({})", n) }
+        }
+        fn icon_name(&self) -> String {
+            "checkbox-checked-symbolic".into()
+        }
+        fn status(&self) -> ksni::Status {
+            if self.todos.iter().any(|t| !t.done) {
+                ksni::Status::Active
+            } else {
+                ksni::Status::Passive
+            }
+        }
+        fn tool_tip(&self) -> ksni::ToolTip {
+            let active: Vec<&Todo> = self.todos.iter().filter(|t| !t.done).collect();
+            let desc = if active.is_empty() {
+                "No active todos".to_string()
+            } else {
+                active.iter().take(10)
+                    .map(|t| match &t.project {
+                        Some(p) => format!("● {}: {}", p, t.text),
+                        None => format!("● {}", t.text),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            ksni::ToolTip {
+                icon_name: "checkbox-checked-symbolic".into(),
+                icon_pixmap: vec![],
+                title: format!("omado — {} active", active.len()),
+                description: desc,
+            }
+        }
+        fn activate(&mut self, _x: i32, _y: i32) {
+            std::process::Command::new("omado").spawn().ok();
+        }
+        fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
+            let active: Vec<(usize, &Todo)> = self.todos.iter()
+                .enumerate()
+                .filter(|(_, t)| !t.done)
+                .collect();
+
+            let mut items: Vec<ksni::MenuItem<Self>> = Vec::new();
+
+            if active.is_empty() {
+                items.push(StandardItem {
+                    label: "No active todos".into(),
+                    enabled: false,
+                    ..Default::default()
+                }.into());
+            } else {
+                for &(idx, todo) in active.iter().take(15) {
+                    let label = match &todo.project {
+                        Some(p) => format!("[{}]  {}", p, todo.text),
+                        None => todo.text.clone(),
+                    };
+                    items.push(StandardItem {
+                        label,
+                        activate: Box::new(move |this: &mut OmadoTray| {
+                            if let Some(t) = this.todos.get_mut(idx) {
+                                t.done = true;
+                            }
+                            save_todos(&this.path, &this.todos);
+                        }),
+                        ..Default::default()
+                    }.into());
+                }
+                if active.len() > 15 {
+                    items.push(StandardItem {
+                        label: format!("…and {} more", active.len() - 15),
+                        enabled: false,
+                        ..Default::default()
+                    }.into());
+                }
+            }
+
+            items.push(ksni::MenuItem::Separator);
+            items.push(StandardItem {
+                label: "Open omado".into(),
+                icon_name: "view-list-symbolic".into(),
+                activate: Box::new(|_| {
+                    std::process::Command::new("omado").spawn().ok();
+                }),
+                ..Default::default()
+            }.into());
+            items.push(StandardItem {
+                label: "Quick add…".into(),
+                icon_name: "list-add-symbolic".into(),
+                activate: Box::new(|_| {
+                    std::process::Command::new("omado")
+                        .arg("quick-add")
+                        .spawn()
+                        .ok();
+                }),
+                ..Default::default()
+            }.into());
+
+            items
+        }
+    }
+
+    let service = ksni::TrayService::new(OmadoTray::new());
+    let handle = service.handle();
+    service.spawn();
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        handle.update(|tray| tray.reload());
+    }
+}
+
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
 const APP_CSS: &str = r#"
@@ -744,6 +881,10 @@ fn main() {
                 cmd_waybar();
                 return;
             }
+            "tray" => {
+                cmd_tray();
+                return;
+            }
             "add" if args.len() > 2 => {
                 cmd_add(&args[2..].join(" "));
                 return;
@@ -764,6 +905,7 @@ fn main() {
                 println!("  omado add \"text\"        Add a todo from the command line");
                 println!("  omado waybar            Print waybar JSON (active todo count)");
                 println!("  omado quick-add         Open the floating quick-add dialog");
+                println!("  omado tray              Run as a system tray icon (StatusNotifierItem)");
                 println!("\nIn the GUI:");
                 println!("  Enter        Add todo (from add bar)");
                 println!("  Ctrl+F       Toggle search");

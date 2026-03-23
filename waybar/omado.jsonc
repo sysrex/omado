@@ -1,8 +1,22 @@
-// Add this block inside your waybar modules-right (or modules-left/center):
+// ── Option A: System tray icon (recommended) ──────────────────────────────────
+//
+// Run omado as a background tray daemon (like pcloud, nm-applet, etc.).
+// Add "tray" to your waybar modules if not already present, then autostart:
+//
+//   "modules-right": ["tray", ...other modules...]
+//
+// Start on login (add to hyprland.conf or autostart script):
+//   exec-once = omado tray
+//
+// The tray icon will appear in waybar's tray area. Hover for todo count,
+// click a todo to mark it done, left-click the icon to open the full GUI.
+
+// ── Option B: Custom waybar module (polling) ──────────────────────────────────
+//
+// Shows the active todo count inline in waybar, refreshing every 15 seconds.
+// Add to your waybar modules and include this block in your config:
 //
 //   "modules-right": ["custom/omado", ...other modules...]
-//
-// Then add this module definition anywhere in your config:
 
 "custom/omado": {
     "exec": "omado waybar",
