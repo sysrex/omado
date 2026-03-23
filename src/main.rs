@@ -195,7 +195,7 @@ fn cmd_waybar() {
     println!(
         r#"{{"text": "  {n}", "tooltip": "{tip}", "class": "active"}}"#,
         n = n,
-        tip = tip.replace('"', "'")
+        tip = tip.replace('"', "'").replace('\n', "\\n")
     );
 }
 
