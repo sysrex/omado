@@ -1,0 +1,13 @@
+/* Add to your waybar style.css */
+
+#custom-omado {
+    padding: 0 10px;
+}
+
+#custom-omado.active {
+    color: @foreground;
+}
+
+#custom-omado.empty {
+    opacity: 0.4;
+}

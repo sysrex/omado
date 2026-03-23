@@ -1,0 +1,14 @@
+// Add this block inside your waybar modules-right (or modules-left/center):
+//
+//   "modules-right": ["custom/omado", ...other modules...]
+//
+// Then add this module definition anywhere in your config:
+
+"custom/omado": {
+    "exec": "omado waybar",
+    "interval": 15,
+    "return-type": "json",
+    "on-click": "omado",
+    "on-click-right": "omado quick-add",
+    "tooltip": true
+}
